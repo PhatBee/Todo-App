@@ -1,25 +1,44 @@
-name: Update Jira on Merge
+name: Update Jira and Notify Slack
 on:
   pull_request:
     types: [closed]
 
 jobs:
-  update-jira:
+  update-jira-and-notify:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
     - name: Extract Jira Issue Key
       id: extract-key
-      uses: tj-actions/branch-names@v6
-      with:
-        separator: "/"
+      run: |
+        BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+        ISSUE_KEY=$(echo "$BRANCH_NAME" | awk -F '/' '{print $NF}')
+        echo "ISSUE_KEY=$ISSUE_KEY" >> $GITHUB_OUTPUT
 
-    - name: Update Jira Issue
+    - name: Transition Jira Issue
       uses: atlassian/gajira-update-issue-action@v2
       with:
-        issue: ${{ steps.extract-key.outputs.current-branch }}
+        issue: ${{ steps.extract-key.outputs.ISSUE_KEY }}
         transition: Done
       env:
         JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
         JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+
+    - name: Slack Notification
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        payload: |
+          {
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "🚀 *Issue ${{ steps.extract-key.outputs.ISSUE_KEY }} đã hoàn thành!*\n• Repository: <https://github.com/${{ github.repository }}|${{ github.repository }}>\n• Merged bởi: <@${{ github.actor }}>"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -1,0 +1,25 @@
+name: Update Jira on Merge
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  update-jira:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+    - name: Extract Jira Issue Key
+      id: extract-key
+      uses: tj-actions/branch-names@v6
+      with:
+        separator: "/"
+
+    - name: Update Jira Issue
+      uses: atlassian/gajira-update-issue-action@v2
+      with:
+        issue: ${{ steps.extract-key.outputs.current-branch }}
+        transition: Done
+      env:
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
